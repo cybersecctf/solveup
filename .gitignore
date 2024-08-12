@@ -1,0 +1,18 @@
+*/backups/
+input.txt
+__pycache__/
+hackcmd.py
+blog.py
+Ai.py
+writeup1.pywriteup2.py
+**/temp.sh
+**/*.pem
+**/*.gpg
+git rm --cached **/writeup1.py
+git rm --cached **/writeup2.py
+git rm --cached **/temp.sh
+git rm --cached **/temp.sh
+
+
+
+

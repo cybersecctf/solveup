@@ -12,18 +12,22 @@ from PyQt5.QtCore import *
 from Timer import *
 import pandas as pd
 import json
-import requests         
+import sys
+sys.path.append('/home/solup/Desktop/blog')  # This is an absolute path
+import blog
+import requests 
+import webbrowser
+       
 current_file=""
 bloglocaladdress = config("bloglocaladdress", "")
 history = config("history", "")
 gitpass = config("gitpass", "123")
-shfile = config("shfile", "temp.sh")
 apps = config("app", "")
 solveups = [""] * 10000
 filenames = [""] * 10000
 countc=0
 findterm="" 
- 
+print("start hack3.sh")
 class TextEditor(QsciScintilla):
     def __init__(self, parent=None):
         super(TextEditor, self).__init__(parent)
@@ -196,7 +200,7 @@ class TabbedEditor(QMainWindow):
         self.show()
    
     def search_blog(self, term):
-        global solveups, bloglocaladdress,blog_file_path
+        global solveups, bloglocaladdress
         solveups = []
         blog_file_path =  "/home/solup/Desktop/blog/Ai"
         try:
@@ -227,15 +231,23 @@ class TabbedEditor(QMainWindow):
     def close_tab(self, index):
         if self.tab_widget.count() > 1:
             self.tab_widget.removeTab(index)
-    def select_file(self):
+    def select_file(self,title="open file"):
         global current_file ,filenames    
         try:
             options = QFileDialog.Options()
-            file_name, _ = QFileDialog.getOpenFileName(self, "Open File", "", "All Files (*);;Python Files (*.py)", options=options)
+            file_name, _ = QFileDialog.getOpenFileName(self, title, "", "All Files (*);;Python Files (*.py)", options=options)
             return file_name
         except Exception as e:
              print(str(e))
              return "" 
+    def select_folder(self, title="Select Folder"):
+     try:
+        options = QFileDialog.Options()
+        folder_name = QFileDialog.getExistingDirectory(self, title, "", options=options)
+        return folder_name
+     except Exception as e:
+        print(f"error select path :{str(e)}")
+        return ""
           
     def open_file(self, file_name=""):
         global current_file ,filenames    
@@ -283,7 +295,7 @@ class TabbedEditor(QMainWindow):
     def read_history(self,last=10):
         try:
            s=[]
-          
+           history="/home/solup/Desktop/hack3/file_history.json" 
             
            with open(history,"r") as f:
                s=f.readlines()
@@ -298,8 +310,7 @@ class TabbedEditor(QMainWindow):
 
     def write_history1(self, content):
      try:
-        global history
-        
+        history = "/home/solup/Desktop/hack3/file_history.json"
 
         # Read existing data or create an empty DataFrame
         try:
@@ -325,7 +336,7 @@ class TabbedEditor(QMainWindow):
 
     def write_history(self,content):
         try:
-           global history
+           history="/home/solup/Desktop/hack3/file_history.json" 
         
            with open(history,"a") as f:
                 f.write(content+"\n")
@@ -466,9 +477,8 @@ class TabbedEditor(QMainWindow):
      else: 
         with open(file_path, 'r') as file:
             command = file.read().strip()
-     global shfile
-   
-     full_command = f"{command} > {shfile} && chmod +x {shfile} && strings {shfile}"
+     shfile="/home/solup/Desktop/hack3/temp.sh"
+     full_command = f"sudo {command} > {shfile} && chmod +x {shfile} && strings {shfile}"
     
      try:
         result = subprocess.run(full_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=15)
@@ -507,6 +517,8 @@ class TabbedEditor(QMainWindow):
         current_index = self.tab_widget.currentIndex()
         if command:
             try:
+                if os.path.exists(command):
+                    self.open_file(command)
                 if command.startswith("http"):
                     local_file_path = command.replace("https://cybersecctf.github.io/blog", bloglocaladdress)
                     if os.path.exists(local_file_path):
@@ -552,7 +564,7 @@ class TabbedEditor(QMainWindow):
                     current_widget = self.tab_widget.currentWidget()
                     current_widget.insert(addmain())
                     return
-                
+               
                 elif command == "$run":
                     current_widget = self.tab_widget.currentWidget()
                     
@@ -560,6 +572,27 @@ class TabbedEditor(QMainWindow):
                     code=modifycode(code)
                     self.run_python_code( code)
                     return
+                elif command == "$weblocal":
+                  # Assuming `self.tab_widget.currentWidget()` and related code works correctly.
+                  current_widget = self.tab_widget.currentWidget()
+                  current_index = self.tab_widget.currentIndex()  # Assuming you want the index of the current tab
+                  file_name = self.tab_widget.tabText(current_index)
+                  content=self.read_file(file_name)
+                  local_path = "/home/solup/Desktop/hack3/temp.html"
+                  with open(local_path, 'w') as file:
+                   file.write(' <link rel="stylesheet" href="https://cybersecctf.github.io/blog/static/css/style.css" />'+content) 
+                  # Open the local file in the browser
+                  firefox_path = webbrowser.get(using='firefox')        
+                  firefox_path.open(f"file://{local_path}", new=0, autoraise=True)
+                elif command == "$web":
+                    current_widget = self.tab_widget.currentWidget()
+                                            
+                    file_name = self.tab_widget.tabText(current_index)
+                    dir_path = os.path.dirname(os.path.realpath(file_name))             
+                    ctfdirs=dir_path.split("/")
+                    search=ctfdirs[len(ctfdirs)-1]
+                    webbrowser.open(f"https://cybersecctf.github.io/blog/?q={search}", new=0, autoraise=True)               
+                    return                         
                 elif command == "$runsh":
                     file_name = self.tab_widget.tabText(current_index)
                     dir_path = os.path.dirname(os.path.realpath(file_name))                          
@@ -588,8 +621,14 @@ class TabbedEditor(QMainWindow):
                     self.search_blog(term)
                     
                     return
-               
-                elif command.startswith("$$new"): 
+                elif command == "$$save gpg":
+                                     
+                    d=self.select_folder()
+                    blog.islog=True
+                    private,public=blog.solveup("tryhackme sign file","generate keys")
+                    d=self.select_file()     
+                    return
+                elif command=="$$new": 
                  global apps 
                  try:  
                               
@@ -762,4 +801,6 @@ if __name__ == '__main__':
     initial_file = sys.argv[1] if len(sys.argv) > 1 else None
     editor = TabbedEditor(initial_file=initial_file)
     sys.exit(app.exec_())
+ 
+
  
